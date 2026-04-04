@@ -89,7 +89,7 @@ import time
 from abc import ABC, abstractmethod
 
 class Task(ABC):
-    def run_with_timeer(self):
+    def run_with_timer(self):
         """The wrapper logic lives in the base class"""
 
         start = time.time()
@@ -111,7 +111,84 @@ class Databackup(Task):
         time.sleep(2)
 
 backup = Databackup()
-backup.run_with_timeer()
+backup.run_with_timer()
+
+
+        
+
+"""Create Account with methods to create account, fund account, withdraw from account, and close account."""
+
+from abc import ABC, abstractmethod
+import random
+
+
+class Account(ABC):
+    def __init__(self, owner: str, balance: float = 0.0):
+        self._owner = owner
+        self._account_number = self._generate_account_number()
+        self._balance = balance
+        self._is_active = False
+
+    @staticmethod
+    def _generate_account_number() -> int:
+        return random.randint(100_000_000, 999_999_999)
+
+    @property
+    def owner(self) -> str:
+        return self._owner
+
+    @property
+    def account_number(self) -> int:
+        return self._account_number
+
+    @property
+    def balance(self) -> float:
+        return self._balance
+
+    @property
+    def is_active(self) -> bool:
+        return self._is_active
+
+    def deposit(self, amount: float) -> None:
+        if amount <= 0:
+            raise ValueError("Deposit amount must be positive.")
+        self._balance += amount
+
+    def withdraw(self, amount: float) -> None:
+        if amount <= 0:
+            raise ValueError("Withdrawal amount must be positive.")
+        if amount > self._balance:
+            raise ValueError("Insufficient funds.")
+        self._balance -= amount
+
+    def close_account(self) -> None:
+        self._is_active = False
+
+    @abstractmethod
+    def create_account(self) -> None:
+        pass
+
+    def __str__(self) -> str:
+        status = "active" if self._is_active else "inactive"
+        return (
+            f"Account(owner={self._owner}, number={self._account_number}, "
+            f"balance={self._balance:.2f}, status={status})"
+        )
+
+
+class FlexipayAccount(Account):
+    def create_account(self) -> None:
+        self._is_active = True
+        print(f"Created account {self._account_number} for customer {self._owner}")
+
+
+# if __name__ == "__main__":
+#     flexi = FlexipayAccount("Xavier Inyangat")
+#     flexi.create_account()
+#     flexi.deposit(150.0)
+#     flexi.withdraw(25.0)
+#     print(flexi)
+
 
 
 
