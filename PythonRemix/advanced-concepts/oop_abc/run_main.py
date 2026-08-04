@@ -13,7 +13,7 @@ class SavingsAccount(Account):
         print(info)
         print(f"Created Savings Account:\n Owner: {info[0]['owner']}\nAcc Numbner: {info[1]['acc_number']}")
         
-        
+    @Account.ensure_active   
     def withdraw_funds(self, amount:float):
         #allow withdraw up to 50% of balance.
         balance = self.check_balance
@@ -37,7 +37,7 @@ class CheckingAccount(Account):
         print(info)
         print(f"Created checking Account:\n Owner: {info[0]['owner']}\nAcc Numbner: {info[1]['acc_number']}")
         
-    
+    @Account.ensure_active
     def withdraw_funds(self, amount:float):
         #allow withdraw up to 50% of balance extra.
         balance = self.check_balance
@@ -58,14 +58,14 @@ class CheckingAccount(Account):
         
     
 if __name__ == "__main__":
-    flexi = FlexipayAccount(owner="Sid Jain")
+    # flexi = FlexipayAccount(owner="Sid Jain")
     # flexi.createAccount()
     # flexi.account_details
     # print(flexi.deposit_funds(100))
     # print(flexi.withdraw_funds(10))
     
-    sacco = SavingsAccount(owner="Sam Ninsiima")
-    sacco.createAccount()
+    # sacco = SavingsAccount(owner="Sam Ninsiima")
+    # sacco.createAccount()
     # sacco.account_details
     # sacco.check_balance
     # sacco.deposit_funds(1000)
@@ -75,13 +75,14 @@ if __name__ == "__main__":
     midfirst = CheckingAccount(owner="Florence Ofori")
     midfirst.createAccount()
     midfirst.account_details
-    sacco.check_balance
-    midfirst.deposit_funds(100)
-    
-    print(midfirst.withdraw_funds(155))
-    # print(midfirst.deposit_funds(20))
     print(midfirst.account_status)
-    print(midfirst.close_account())
+    print(midfirst.manage_account('open'))
+    # sacco.check_balance
+    midfirst.deposit_funds(100)
+    print(midfirst.withdraw_funds(10))
+    # print(midfirst.deposit_funds(20))
+    print(midfirst.manage_account('close'))
+    print(midfirst.account_status)
     
 
     

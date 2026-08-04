@@ -19,9 +19,18 @@ class Account(ABC):
     #     return random.randint(10**9, 10**10 - 1)
     
     def ensure_active(func):
-        def wrapper(func):
-            result = func()
-            return result
+        def wrapper(self, *args, **kwargs):
+            try:
+                if self._acc_status: 
+                    result = func(self, *args, **kwargs)
+                    return result
+                else:
+                    print("Can't Process transaction - Account Closed!")
+                    return "Account Inacctive"
+            except Exception as e:
+                print(f"Error occured: {e}")
+                
+            
         return wrapper
         
     @staticmethod
@@ -55,7 +64,7 @@ class Account(ABC):
     def account_status(self):
         return 'Active' if self._acc_status else 'Inactive'
     
-    
+    @ensure_active
     def deposit_funds(self, amount: float):
         try:
             self._validate_amount( amount, 'deposit')
@@ -96,12 +105,16 @@ class Account(ABC):
     def createAccount(self):
         pass
     
-    def close_account(self):
-        if self._acc_status:
+    def manage_account(self, operation:str = 'close'):
+        if self._acc_status and operation == 'close':
             self._acc_status = False
             return (f"Account {self.account_details[1]['acc_number']} has been closed")
+        elif not self._acc_status and operation == 'open':
+            self._acc_status = True
+            return (f"Account {self.account_details[1]['acc_number']} has been opened")
         else:
-            return ("Account already in active")
+            return (f"Account Already Open/Closed")
+       
             
     
     def __str__(self):
