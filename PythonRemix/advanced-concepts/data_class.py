@@ -1,7 +1,8 @@
 # Summary Checklist: 
 # Which one should you use?Use @classmethod when your function needs to interact with 
 # class-level attributes,
-# call other class methods, or spin up new instances dynamically.Use @staticmethod 
+# call other class methods, or spin up new instances dynamically.
+# Use @staticmethod 
 # when your function represents a standalone utility that performs computation purely
 # using the parameters provided to it.Use a standard instance method (using self) if 
 # the logic needs to manipulate individual object data unique to each instance
