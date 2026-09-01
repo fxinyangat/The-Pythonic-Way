@@ -1,11 +1,17 @@
 import argparse
 import json
-from typing import Any
+from typing import Any, cast
 
 try:
-    from .reranker import retrieve_and_rerank
+    from .evaluator import evaluate_pipeline
+    from .generator import DEFAULT_GENERATION_MODEL, generate_answer
+    from .reranker import rerank_chunks
+    from .retriever import retrieve
 except ImportError:
-    from reranker import retrieve_and_rerank
+    from .evaluator import evaluate_pipeline
+    from generator import DEFAULT_GENERATION_MODEL, generate_answer
+    from reranker import rerank_chunks
+    from retriever import retrieve
 
 
 DEFAULT_RETRIEVE_K = 10
@@ -16,7 +22,8 @@ def run_pipeline(
     query: str,
     retrieve_k: int = DEFAULT_RETRIEVE_K,
     top_n: int = DEFAULT_TOP_N,
-) -> list[dict[str, Any]]:
+    model: str = DEFAULT_GENERATION_MODEL,
+) -> dict[str, Any]:
     if not query.strip():
         raise ValueError("query must not be empty.")
 
@@ -26,11 +33,37 @@ def run_pipeline(
     if top_n <= 0:
         raise ValueError("top_n must be greater than 0.")
 
-    return retrieve_and_rerank(
-        query=query,
-        retrieve_k=retrieve_k,
-        top_n=top_n,
+    retrieved_docs = retrieve(query=query, k=retrieve_k)
+    reranked_docs = cast(
+        list[dict[str, Any]],
+        rerank_chunks(
+            query=query,
+            docs=retrieved_docs,
+            top_n=top_n,
+        ),
     )
+    answer = generate_answer(
+        query=query,
+        docs=reranked_docs,
+        model=model,
+    )
+    evaluation = evaluate_pipeline(
+        retrieved_docs=retrieved_docs,
+        reranked_docs=reranked_docs,
+        answer=answer,
+    )
+
+    return {
+        "answer": answer,
+        "retrieval_stage": {
+            "query": query,
+            "retrieve_k": retrieve_k,
+            "top_n": top_n,
+            "retrieved_docs": retrieved_docs,
+            "reranked_docs": reranked_docs,
+            "evaluation": evaluation,
+        },
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,19 +81,32 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_TOP_N,
         help=f"Number of reranked documents to return. Default: {DEFAULT_TOP_N}.",
     )
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_GENERATION_MODEL,
+        help=f"OpenAI model to use for generation. Default: {DEFAULT_GENERATION_MODEL}.",
+    )
     return parser
+
+
+def format_pipeline_output(result: dict[str, Any]) -> str:
+    answer = result["answer"]
+    retrieval_stage = json.dumps(result["retrieval_stage"], indent=2)
+
+    return f"Answer:\n{answer}\n\nRetrieval stage:\n{retrieval_stage}"
 
 
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    results = run_pipeline(
+    result = run_pipeline(
         query=args.query,
         retrieve_k=args.retrieve_k,
         top_n=args.top_n,
+        model=args.model,
     )
-    print(json.dumps(results, indent=2))
+    print(format_pipeline_output(result))
 
 
 if __name__ == "__main__":
