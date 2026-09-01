@@ -1,7 +1,8 @@
-import os
 import hashlib
-from pathlib import Path
+import os
 from functools import lru_cache
+from pathlib import Path
+from typing import Any
 
 import chromadb
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
@@ -9,9 +10,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-@lru_cache(maxsize=128)
+
+DB_DIR_NAME = "agentic_rag_vector_db"
+COLLECTION_NAME = "agentic_rag_kb"
+EMBEDDING_MODEL = "text-embedding-3-small"
+
+
+@lru_cache(maxsize=1)
 def get_collection():
-    db_path = Path(__file__).resolve().parent / "agentic_rag_vector_db"
+    db_path = Path(__file__).resolve().parent / DB_DIR_NAME
     db_path.mkdir(parents=True, exist_ok=True)
 
     client = chromadb.PersistentClient(path=str(db_path))
@@ -22,18 +29,57 @@ def get_collection():
 
     embedding_function = OpenAIEmbeddingFunction(
         api_key=api_key,
-        model_name="text-embedding-3-small",
+        model_name=EMBEDDING_MODEL,
     )
 
     return client.get_or_create_collection(
-        name="agentic_rag_kb",
+        name=COLLECTION_NAME,
         embedding_function=embedding_function,
     )
 
 
-def add_documents_if_new(collection, documents, metadatas=None):
+def query_documents(
+    collection: Any,
+    query_texts: list[str],
+    n_results: int = 2,
+) -> list[list[dict[str, Any]]]:
+    if n_results <= 0:
+        raise ValueError("n_results must be greater than 0.")
+
+    raw = collection.query(
+        query_texts=query_texts,
+        n_results=n_results,
+    )
+
+    results = []
+    for query_index in range(len(query_texts)):
+        matches = [
+            {
+                "id": raw["ids"][query_index][match_index],
+                "text": raw["documents"][query_index][match_index],
+                "metadata": raw["metadatas"][query_index][match_index] or {},
+                "distance": raw["distances"][query_index][match_index],
+            }
+            for match_index in range(len(raw["ids"][query_index]))
+        ]
+        results.append(matches)
+
+    return results
+
+
+def add_documents_if_new(
+    collection: Any,
+    documents: list[str],
+    metadatas: list[dict[str, Any]] | None = None,
+) -> None:
+    if not documents:
+        return
+
     if metadatas is None:
         metadatas = [{} for _ in documents]
+
+    if len(documents) != len(metadatas):
+        raise ValueError("documents and metadatas must have the same length.")
 
     ids = [hashlib.md5(doc.encode("utf-8")).hexdigest() for doc in documents]
     existing_ids = set(collection.get(ids=ids)["ids"])
@@ -56,28 +102,6 @@ def add_documents_if_new(collection, documents, metadatas=None):
             metadatas=metas_to_add,
             ids=ids_to_add,
         )
-
-
-def query_documents(collection, query_texts, n_results=2):
-    raw = collection.query(
-        query_texts=query_texts,
-        n_results=n_results,
-    )
-
-    results = []
-    for i in range(len(query_texts)):
-        matches = [
-            {
-                "id": raw["ids"][i][j],
-                "text": raw["documents"][i][j],
-                "metadata": raw["metadatas"][i][j],
-                "distance": raw["distances"][i][j],
-            }
-            for j in range(len(raw["ids"][i]))
-        ]
-        results.append(matches)
-
-    return results
 
 
 if __name__ == "__main__":
