@@ -10,13 +10,13 @@ try:
     from .evaluator import evaluate_pipeline, evaluate_ragas_pipeline
     from .generator import DEFAULT_GENERATION_MODEL, generate_answer
     from .query_rewriter import rewrite_query
-    from .reranker import rerank_chunks
+    from .reranker import CrossEncoderReranker, rerank_chunks
     from .retriever import retrieve
 except ImportError:
     from evaluator import evaluate_pipeline, evaluate_ragas_pipeline
     from generator import DEFAULT_GENERATION_MODEL, generate_answer
     from query_rewriter import rewrite_query
-    from reranker import rerank_chunks
+    from reranker import CrossEncoderReranker, rerank_chunks
     from retriever import retrieve
 
 
@@ -25,6 +25,7 @@ DEFAULT_TOP_N = 3
 
 
 def run_pipeline(
+    reranker: CrossEncoderReranker,
     query: str,
     retrieve_k: int = DEFAULT_RETRIEVE_K,
     top_n: int = DEFAULT_TOP_N,
@@ -49,6 +50,7 @@ def run_pipeline(
     reranked_docs = cast(
         list[dict[str, Any]],
         rerank_chunks(
+            reranker=reranker,
             query=query,
             docs=retrieved_docs,
             top_n=top_n,
@@ -132,7 +134,9 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    reranker = CrossEncoderReranker()
     result = run_pipeline(
+        reranker=reranker,
         query=args.query,
         retrieve_k=args.retrieve_k,
         top_n=args.top_n,

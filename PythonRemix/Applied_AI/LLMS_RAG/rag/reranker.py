@@ -1,9 +1,8 @@
 # reranker.py — second-pass precision filter on top of retriever's cheap
 # bi-encoder distance. Cross-encoder scores (query, doc) pairs jointly, so it
 # separates "topically similar" from "actually answers the question" much better
-# than embedding distance alone. Loaded once (lru_cache), scores all candidates,
-# returns the top_n sorted by rerank_score.
-from functools import lru_cache
+# than embedding distance alone. CrossEncoderReranker is constructed once (by the
+# caller, e.g. main.py at startup) and passed in — no hidden module-level cache.
 from typing import Any, cast
 
 import torch
@@ -20,14 +19,26 @@ MAX_LENGTH = 512
 Document = str | dict[str, Any]
 
 
-@lru_cache(maxsize=1)
-def _load_model():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    tokenizer = AutoTokenizer.from_pretrained(CROSS_ENCODER_MODEL)
-    model = AutoModelForSequenceClassification.from_pretrained(CROSS_ENCODER_MODEL)
-    model.to(device)
-    model.eval()
-    return tokenizer, model, device
+class CrossEncoderReranker:
+    def __init__(self, model_name: str = CROSS_ENCODER_MODEL, device: str | None = None):
+        self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self.model.to(self.device)
+        self.model.eval()
+
+    def score(self, pairs: list[list[str]]) -> list[float]:
+        inputs = self.tokenizer(
+            pairs,
+            padding=True,
+            truncation=True,
+            return_tensors="pt",
+            max_length=MAX_LENGTH,
+        )
+        inputs = {key: value.to(self.device) for key, value in inputs.items()}
+
+        with torch.inference_mode():
+            return self.model(**inputs).logits.squeeze(-1).tolist()
 
 
 def _get_doc_text(doc: Document) -> str:
@@ -42,30 +53,20 @@ def _get_doc_text(doc: Document) -> str:
 
 
 def rerank_chunks(
+    reranker: CrossEncoderReranker,
     query: str,
     docs: list[Document],
     top_n: int = 3,
 ) -> list[Document]:
     if not docs or top_n <= 0:
-        return []
+        return [] # Returning no documents is safer than running the model unnecessarily.
+
 
     pairs = [[query, _get_doc_text(doc)] for doc in docs]
-    tokenizer, model, device = _load_model()
-
-    inputs = tokenizer(
-        pairs,
-        padding=True,
-        truncation=True,
-        return_tensors="pt",
-        max_length=MAX_LENGTH,
-    )
-    inputs = {key: value.to(device) for key, value in inputs.items()}
-
-    with torch.inference_mode():
-        scores = model(**inputs).logits.squeeze(-1)
+    scores = reranker.score(pairs)
 
     scored_docs = sorted(
-        zip(docs, scores.tolist()),
+        zip(docs, scores),
         key=lambda x: x[1],
         reverse=True,
     )
@@ -79,9 +80,10 @@ def rerank_chunks(
 
 
 def retrieve_and_rerank(
+    reranker: CrossEncoderReranker,
     query: str,
     retrieve_k: int = 10,
     top_n: int = 3,
 ) -> list[dict[str, Any]]:
     docs = retrieve(query, k=retrieve_k)
-    return cast(list[dict[str, Any]], rerank_chunks(query, docs, top_n=top_n))
+    return cast(list[dict[str, Any]], rerank_chunks(reranker, query, docs, top_n=top_n))
