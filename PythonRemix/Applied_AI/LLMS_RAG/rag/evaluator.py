@@ -1,8 +1,15 @@
+# evaluator.py — two tiers of eval: evaluate_pipeline is cheap/free/always-on
+# (citation presence, distance/rerank score stats, no LLM calls). evaluate_ragas_pipeline
+# is the expensive tier (faithfulness/answer_relevancy/context_relevance via ragas'
+# collections API, each metric = its own LLM call) — call it deliberately, not per request,
+# since it costs real API calls and latency. ragas>=0.4 API: metrics are classes you
+# instantiate with an llm (and embeddings, for AnswerRelevancy), then .score(...).value
+# per example — not the old dataset+evaluate() batch pattern.
 from functools import lru_cache
 from statistics import mean
 from typing import Any
 
-from openai import OpenAI
+from openai import AsyncOpenAI
 from ragas.embeddings import embedding_factory
 from ragas.llms import llm_factory
 from ragas.metrics.collections import (
@@ -19,13 +26,16 @@ RAGAS_EMBEDDING_MODEL = "text-embedding-3-small"
 
 @lru_cache(maxsize=1)
 def _ragas_llm():
-    return llm_factory(model=RAGAS_LLM_MODEL, provider="openai", client=OpenAI())
+    # score() runs asyncio.run(ascore(...)) internally, which needs an async
+    # client — a sync OpenAI() here raises "Cannot use agenerate() with a
+    # synchronous client."
+    return llm_factory(model=RAGAS_LLM_MODEL, provider="openai", client=AsyncOpenAI())
 
 
 @lru_cache(maxsize=1)
 def _ragas_embeddings():
     return embedding_factory(
-        provider="openai", model=RAGAS_EMBEDDING_MODEL, client=OpenAI()
+        provider="openai", model=RAGAS_EMBEDDING_MODEL, client=AsyncOpenAI()
     )
 
 def _numeric_values(docs: list[dict[str, Any]], key: str) -> list[float]:

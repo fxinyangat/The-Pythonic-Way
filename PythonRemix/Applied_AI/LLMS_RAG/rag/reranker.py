@@ -1,3 +1,8 @@
+# reranker.py — second-pass precision filter on top of retriever's cheap
+# bi-encoder distance. Cross-encoder scores (query, doc) pairs jointly, so it
+# separates "topically similar" from "actually answers the question" much better
+# than embedding distance alone. Loaded once (lru_cache), scores all candidates,
+# returns the top_n sorted by rerank_score.
 from functools import lru_cache
 from typing import Any, cast
 

@@ -1,8 +1,12 @@
+# vector_store.py — owns the Chroma collection: persistent client + OpenAI
+# embedding function, add-with-dedupe, and query normalized to a plain list of
+# {id, text, metadata, distance} dicts so nothing downstream depends on Chroma's shape.
 import hashlib
 import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+import json
 
 import chromadb
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
@@ -50,7 +54,7 @@ def query_documents(
         query_texts=query_texts,
         n_results=n_results,
     )
-
+    print(f"RAW/n {json.dumps(raw, indent=2)}")
     results = []
     for query_index in range(len(query_texts)):
         matches = [
@@ -123,4 +127,4 @@ if __name__ == "__main__":
         n_results=2,
     )
 
-    print(results)
+    print(json.dumps(results, indent=2))

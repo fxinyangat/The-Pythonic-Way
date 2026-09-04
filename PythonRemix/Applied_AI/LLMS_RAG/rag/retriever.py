@@ -1,3 +1,6 @@
+# retriever.py — thin wrapper around vector_store: given a query string (raw or
+# already rewritten upstream), embed + search and return the top-k candidates.
+# No rewriting, no reranking, no filtering here on purpose — single job only.
 try:
     from .vector_store import get_collection, query_documents
 except ImportError:
@@ -15,5 +18,4 @@ def retrieve(query: str, k: int = 5) -> list[dict]:
         query_texts=[query],
         n_results=k,
     )
-
     return query_docs[0]

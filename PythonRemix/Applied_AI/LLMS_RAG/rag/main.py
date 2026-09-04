@@ -1,15 +1,21 @@
+# main.py — CLI entrypoint wiring the whole pipeline together:
+# rewrite -> retrieve -> rerank -> generate -> evaluate_pipeline (always on) and
+# evaluate_ragas_pipeline (opt-in via --ragas, costs extra LLM calls per run).
+# Run as: python3 -m rag.main "<query>"
 import argparse
 import json
 from typing import Any, cast
 
 try:
-    from .evaluator import evaluate_pipeline
+    from .evaluator import evaluate_pipeline, evaluate_ragas_pipeline
     from .generator import DEFAULT_GENERATION_MODEL, generate_answer
+    from .query_rewriter import rewrite_query
     from .reranker import rerank_chunks
     from .retriever import retrieve
 except ImportError:
-    from .evaluator import evaluate_pipeline
+    from evaluator import evaluate_pipeline, evaluate_ragas_pipeline
     from generator import DEFAULT_GENERATION_MODEL, generate_answer
+    from query_rewriter import rewrite_query
     from reranker import rerank_chunks
     from retriever import retrieve
 
@@ -23,6 +29,8 @@ def run_pipeline(
     retrieve_k: int = DEFAULT_RETRIEVE_K,
     top_n: int = DEFAULT_TOP_N,
     model: str = DEFAULT_GENERATION_MODEL,
+    use_ragas: bool = False,
+    ground_truth: str | None = None,
 ) -> dict[str, Any]:
     if not query.strip():
         raise ValueError("query must not be empty.")
@@ -33,7 +41,11 @@ def run_pipeline(
     if top_n <= 0:
         raise ValueError("top_n must be greater than 0.")
 
-    retrieved_docs = retrieve(query=query, k=retrieve_k)
+    # Rewrite only steers retrieval (matching corpus phrasing). Reranking and
+    # generation stay anchored to the original query — that's the actual
+    # question the answer has to address, not the retrieval-optimized version.
+    rewritten_query = rewrite_query(query, model=model)
+    retrieved_docs = retrieve(query=rewritten_query, k=retrieve_k)
     reranked_docs = cast(
         list[dict[str, Any]],
         rerank_chunks(
@@ -52,11 +64,19 @@ def run_pipeline(
         reranked_docs=reranked_docs,
         answer=answer,
     )
+    if use_ragas:
+        evaluation["ragas"] = evaluate_ragas_pipeline(
+            query=query,
+            answer=answer,
+            docs=reranked_docs,
+            ground_truth=ground_truth,
+        )
 
     return {
         "answer": answer,
         "retrieval_stage": {
             "query": query,
+            "rewritten_query": rewritten_query,
             "retrieve_k": retrieve_k,
             "top_n": top_n,
             "retrieved_docs": retrieved_docs,
@@ -86,6 +106,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_GENERATION_MODEL,
         help=f"OpenAI model to use for generation. Default: {DEFAULT_GENERATION_MODEL}.",
     )
+    parser.add_argument(
+        "--ragas",
+        action="store_true",
+        help="Also compute ragas metrics (faithfulness, answer_relevancy, "
+        "context_relevance). Costs extra LLM calls per run.",
+    )
+    parser.add_argument(
+        "--ground-truth",
+        default=None,
+        help="Reference answer for ragas context_precision/context_recall "
+        "(only used with --ragas).",
+    )
     return parser
 
 
@@ -105,6 +137,8 @@ def main() -> None:
         retrieve_k=args.retrieve_k,
         top_n=args.top_n,
         model=args.model,
+        use_ragas=args.ragas,
+        ground_truth=args.ground_truth,
     )
     print(format_pipeline_output(result))
 
