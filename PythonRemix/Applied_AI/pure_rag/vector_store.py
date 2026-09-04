@@ -1,13 +1,12 @@
 # vector_store.py — owns the Chroma collection: persistent client + OpenAI
 # embedding function, add-with-dedupe, and query normalized to a plain list of
 # {id, text, metadata, distance} dicts so nothing downstream depends on Chroma's shape.
-# VectorStore is constructed once (by the caller, e.g. main.py at startup) and
-# passed in — no hidden module-level cache.
 import hashlib
-import json
 import os
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
+import json
 
 import chromadb
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
@@ -21,30 +20,26 @@ COLLECTION_NAME = "agentic_rag_kb"
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 
-class VectorStore:
-    def __init__(
-        self,
-        db_dir_name: str = DB_DIR_NAME,
-        collection_name: str = COLLECTION_NAME,
-        embedding_model: str = EMBEDDING_MODEL,
-    ):
-        db_path = Path(__file__).resolve().parent / db_dir_name
-        db_path.mkdir(parents=True, exist_ok=True)
+@lru_cache(maxsize=1)
+def get_collection():
+    db_path = Path(__file__).resolve().parent / DB_DIR_NAME
+    db_path.mkdir(parents=True, exist_ok=True)
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise RuntimeError("OPENAI_API_KEY is not set")
+    client = chromadb.PersistentClient(path=str(db_path))
 
-        client = chromadb.PersistentClient(path=str(db_path))
-        embedding_function = OpenAIEmbeddingFunction(
-            api_key=api_key,
-            model_name=embedding_model,
-        )
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY is not set")
 
-        self.collection = client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=embedding_function,
-        )
+    embedding_function = OpenAIEmbeddingFunction(
+        api_key=api_key,
+        model_name=EMBEDDING_MODEL,
+    )
+
+    return client.get_or_create_collection(
+        name=COLLECTION_NAME,
+        embedding_function=embedding_function,
+    )
 
 
 def query_documents(
@@ -59,7 +54,7 @@ def query_documents(
         query_texts=query_texts,
         n_results=n_results,
     )
-
+    print(f"RAW\n {json.dumps(raw, indent=2)}")
     results = []
     for query_index in range(len(query_texts)):
         matches = [
@@ -114,7 +109,7 @@ def add_documents_if_new(
 
 
 if __name__ == "__main__":
-    store = VectorStore()
+    collection = get_collection()
 
     new_dummy_data = [
         "New rule: remote workers must submit weekly reports by Monday noon."
@@ -124,10 +119,10 @@ if __name__ == "__main__":
         {"department": "HR", "type": "remote"}
     ]
 
-    add_documents_if_new(store.collection, new_dummy_data, metadatas=new_metadatas)
+    add_documents_if_new(collection, new_dummy_data, metadatas=new_metadatas)
 
     results = query_documents(
-        store.collection,
+        collection,
         ["What are the new rules for remote workers?"],
         n_results=2,
     )

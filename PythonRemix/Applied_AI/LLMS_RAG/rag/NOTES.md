@@ -1,0 +1,20 @@
+On vector_store.py — yes, same treatment makes sense, and arguably more so than the reranker.
+
+get_collection() does more expensive/stateful work than _load_model() did: disk I/O (mkdir, PersistentClient opening a SQLite-backed store), constructing an OpenAIEmbeddingFunction, and a round-trip to Chroma's own metadata store via get_or_create_collection. That's exactly the profile that benefits from explicit startup-time construction instead of lazy-on-first-call caching — plus it already fits the pattern, since query_documents/add_documents_if_new already take collection as a parameter rather than reaching for the cache themselves. The only piece still hidden behind lru_cache is get_collection() itself, called from retriever.py:14. Turning that into an explicit VectorStore (or just constructing the collection once in main() and threading it through retrieve()) would match what we just did for the reranker and close the same gaps: visible startup failure if the DB path/API key is bad, no ambiguity about SQLite handles across forked workers, easy to inject a fake collection in tests.
+
+Same anti-pattern also shows up in two more places — lower priority, worth naming:
+
+query_rewriter.py's _client() — an OpenAI() client is cheap to construct (no disk/network at init), so this is lower-stakes than the vector store or reranker, but it's the same "hidden module-level singleton" shape.
+evaluator.py's _ragas_llm()/_ragas_embeddings() — same idea, also cheap client construction, but three different modules doing the identical trick is a sign this deserves one consistent convention rather than three ad hoc ones.
+If we do all four, a natural next step is a single place (e.g. a small config.py or an explicit Pipeline/AppContext object built once in main()) that owns all the constructed clients — OpenAI client, vector store, reranker, ragas llm/embeddings — and hands them down. That replaces four separate lazy-singleton tricks with one obvious object.
+
+Other things I noticed worth optimizing, roughly in priority order:
+
+Leftover debug artifacts — the print(f"RAW/n ...") in vector_store.py:57 and the txt.txt file that looks like a captured copy of that same debug dump sitting in the repo. Quick cleanup, no design decision needed.
+Inconsistent error-handling policy across stages — rewrite_query swallows all exceptions and degrades silently; generate_answer/_post_chat_completion raise straight through with no retry; get_collection/generator.py raise RuntimeError on missing API key. Worth deciding one policy (e.g. "optional stages degrade + log, required stages retry-then-raise") rather than each module inventing its own.
+generator.py uses raw urllib instead of the openai SDK that every other module uses — inconsistent, and loses whatever retry/error-typing the SDK gives you for free.
+Scattered model-name constants (DEFAULT_REWRITE_MODEL, DEFAULT_GENERATION_MODEL, RAGAS_LLM_MODEL, EMBEDDING_MODEL, CROSS_ENCODER_MODEL) live in four different files — fine at this size, but a single config module becomes worth it once you want to tune these per-environment.
+No retry/backoff anywhere for transient OpenAI failures (rate limits, timeouts) — currently a 429 just kills the run.
+API key validation duplicated in generator.py and vector_store.py, each with a slightly different check — could be one fail-fast startup check instead of scattered runtime checks.
+Embedding-model/vector-store coupling — EMBEDDING_MODEL is baked into get_collection(); if it's ever changed, old vectors in the persisted Chroma store become incompatible with new queries with no guard or migration path. Worth a mental flag for later, not urgent now.
+No tests — still true, and now that reranker.py/vector_store.py would take injected dependencies, they become much easier to unit test with fakes.

@@ -10,13 +10,11 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 try:
     from .retriever import retrieve
-    from .vector_store import VectorStore
 except ImportError:
-    from retriever import retrieve
-    from vector_store import VectorStore
+    from PythonRemix.Applied_AI.pure_rag.retriever import retrieve
 
 
-CROSS_ENCODER_MODEL = "Alibaba-NLP/gte-reranker-modernbert-base" #"cross-encoder/ms-marco-MiniLM-L-6-v2"
+CROSS_ENCODER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 MAX_LENGTH = 512
 Document = str | dict[str, Any]
 
@@ -83,10 +81,9 @@ def rerank_chunks(
 
 def retrieve_and_rerank(
     reranker: CrossEncoderReranker,
-    store: VectorStore,
     query: str,
     retrieve_k: int = 10,
     top_n: int = 3,
 ) -> list[dict[str, Any]]:
-    docs = retrieve(store, query, k=retrieve_k)
+    docs = retrieve(query, k=retrieve_k)
     return cast(list[dict[str, Any]], rerank_chunks(reranker, query, docs, top_n=top_n))

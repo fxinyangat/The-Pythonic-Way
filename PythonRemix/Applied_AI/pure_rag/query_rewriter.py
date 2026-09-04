@@ -3,9 +3,16 @@
 # for embedding search). Single job, composable: this does NOT call retrieve()
 # itself — main.py/orchestrator decides whether to rewrite before retrieval.
 # Must never be a hard dependency: any failure falls back to the original query.
+import os
+from functools import lru_cache
+
+from dotenv import load_dotenv
 from openai import OpenAI
 
+load_dotenv()
+
 DEFAULT_REWRITE_MODEL = 'gpt-4o-mini'
+# gpt-4o-mini, gpt-5.4-mini
 
 _SYSTEM_PROMPT = (
     "You rewrite user questions into a single, retrieval-optimized search query "
@@ -15,13 +22,18 @@ _SYSTEM_PROMPT = (
 )
 
 
-def rewrite_query(client: OpenAI, query: str, model: str = DEFAULT_REWRITE_MODEL) -> str:
+@lru_cache(maxsize=1)
+def _client() -> OpenAI:
+    return OpenAI()
+
+
+def rewrite_query(query: str, model: str = DEFAULT_REWRITE_MODEL) -> str:
     query = query.strip()
-    if not query:
+    if not query or not os.getenv("OPENAI_API_KEY"):
         return query
 
     try:
-        response = client.chat.completions.create(
+        response = _client().chat.completions.create(
             model=model,
             temperature=0.0,
             messages=[
@@ -40,4 +52,4 @@ def rewrite_query(client: OpenAI, query: str, model: str = DEFAULT_REWRITE_MODEL
 
 
 if __name__ == "__main__":
-    print(rewrite_query(OpenAI(), " I hate working in office.this illegal, how to wfh time log rules"))
+    print(rewrite_query(" I hate working in office.this illegal, how to wfh time log rules"))
