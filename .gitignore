@@ -1,4 +1,38 @@
 PythonRemix/huge_log.txt
 .env
 Intro to Python for Computer Science and Data Science .pdf
-PythonRemix/node_modules
+PythonRemix/node_modules/
+
+# Python caches, virtual environments, and local tooling
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+venv2/
+env/
+
+# JavaScript dependencies and build output
+node_modules/
+dist/
+build/
+.vite/
+
+# Local RAG/vector database data
+**/agentic_rag_vector_db/
+
+# Operating system and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Notebook-generated checkpoints
+.ipynb_checkpoints/
+
+# Logs and local runtime output
+*.log
