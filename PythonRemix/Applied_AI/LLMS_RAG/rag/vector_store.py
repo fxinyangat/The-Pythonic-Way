@@ -47,89 +47,67 @@ class VectorStore:
         )
 
 
-def query_documents(
-    collection: Any,
-    query_texts: list[str],
-    n_results: int = 2,
-) -> list[list[dict[str, Any]]]:
-    if n_results <= 0:
-        raise ValueError("n_results must be greater than 0.")
 
-    raw = collection.query(
-        query_texts=query_texts,
-        n_results=n_results,
-    )
+    def query_documents(
+        self,
+        query_texts: list[str],
+        n_results: int = 2,
+    ) -> list[list[dict[str, Any]]]:
+        if n_results <= 0:
+            raise ValueError("n_results must be greater than 0.")
 
-    results = []
-    for query_index in range(len(query_texts)):
-        matches = [
-            {
-                "id": raw["ids"][query_index][match_index],
-                "text": raw["documents"][query_index][match_index],
-                "metadata": raw["metadatas"][query_index][match_index] or {},
-                "distance": raw["distances"][query_index][match_index],
-            }
-            for match_index in range(len(raw["ids"][query_index]))
-        ]
-        results.append(matches)
-
-    return results
-
-
-def add_documents_if_new(
-    collection: Any,
-    documents: list[str],
-    metadatas: list[dict[str, Any]] | None = None,
-) -> None:
-    if not documents:
-        return
-
-    if metadatas is None:
-        metadatas = [{} for _ in documents]
-
-    if len(documents) != len(metadatas):
-        raise ValueError("documents and metadatas must have the same length.")
-
-    ids = [hashlib.md5(doc.encode("utf-8")).hexdigest() for doc in documents]
-    existing_ids = set(collection.get(ids=ids)["ids"])
-
-    docs_to_add = []
-    metas_to_add = []
-    ids_to_add = []
-
-    for doc, meta, doc_id in zip(documents, metadatas, ids):
-        if doc_id in existing_ids:
-            continue
-
-        docs_to_add.append(doc)
-        metas_to_add.append(meta)
-        ids_to_add.append(doc_id)
-
-    if docs_to_add:
-        collection.add(
-            documents=docs_to_add,
-            metadatas=metas_to_add,
-            ids=ids_to_add,
+        raw = self.collection.query(
+            query_texts=query_texts,
+            n_results=n_results,
         )
 
+        results = []
+        for query_index in range(len(query_texts)):
+            matches = [
+                {
+                    "id": raw["ids"][query_index][match_index],
+                    "text": raw["documents"][query_index][match_index],
+                    "metadata": raw["metadatas"][query_index][match_index] or {},
+                    "distance": raw["distances"][query_index][match_index],
+                }
+                for match_index in range(len(raw["ids"][query_index]))
+            ]
+            results.append(matches)
 
-if __name__ == "__main__":
-    store = VectorStore()
+        return results
 
-    new_dummy_data = [
-        "New rule: remote workers must submit weekly reports by Monday noon."
-    ]
+    def add_documents_if_new(
+        self,
+        documents: list[str],
+        metadatas: list[dict[str, Any]] | None = None,
+    ) -> None:
+        if not documents:
+            return
 
-    new_metadatas = [
-        {"department": "HR", "type": "remote"}
-    ]
+        if metadatas is None:
+            metadatas = [{} for _ in documents]
 
-    add_documents_if_new(store.collection, new_dummy_data, metadatas=new_metadatas)
+        if len(documents) != len(metadatas):
+            raise ValueError("documents and metadatas must have the same length.")
 
-    results = query_documents(
-        store.collection,
-        ["What are the new rules for remote workers?"],
-        n_results=2,
-    )
+        ids = [hashlib.md5(doc.encode("utf-8")).hexdigest() for doc in documents]
+        existing_ids = set(self.collection.get(ids=ids)["ids"])
 
-    print(json.dumps(results, indent=2))
+        docs_to_add = []
+        metas_to_add = []
+        ids_to_add = []
+
+        for doc, meta, doc_id in zip(documents, metadatas, ids):
+            if doc_id in existing_ids:
+                continue
+
+            docs_to_add.append(doc)
+            metas_to_add.append(meta)
+            ids_to_add.append(doc_id)
+
+        if docs_to_add:
+            self.collection.add(
+                documents=docs_to_add,
+                metadatas=metas_to_add,
+                ids=ids_to_add,
+            )
