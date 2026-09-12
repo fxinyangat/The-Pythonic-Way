@@ -1,0 +1,42 @@
+[
+  {
+    "id": "doc_1",
+    "text": "Remote workers must submit time logs by Friday 5 PM.",
+    "metadata": {"type": "remote", "department": "HR"}
+  },
+  {
+    "id": "doc_2",
+    "text": "On-site employees are required to log entry via physical badge readers.",
+    "metadata": {"type": "onsite", "department": "HR"}
+  },
+  {
+    "id": "doc_3",
+    "text": "Contractors must submit invoices monthly by the 25th.",
+    "metadata": {"type": "contractor", "department": "Finance"}
+  },
+  {
+    "id": "doc_4",
+    "text": "Full-time remote staff receive a $500 home office stipend.",
+    "metadata": {"type": "remote", "department": "HR"}
+  },
+  {
+    "id": "doc_5",
+    "text": "Hourly remote workers must take a mandatory 30-minute break after 5 hours.",
+    "metadata": {"type": "remote", "department": "HR"}
+  },
+  {
+    "id": "doc_6",
+    "text": "New rule: remote workers must submit weekly reports by Monday noon.",
+    "metadata": {"type": "remote", "department": "HR"}
+  },
+  {
+    "id": "doc_7",
+    "text": "Employees requesting leave must notify their manager at least two weeks in advance.",
+    "metadata": {"type": "leave", "department": "HR"}
+  },
+  {
+    "id": "doc_8",
+    "text": "Engineering teams must submit production incident reports within 24 hours.",
+    "metadata": {"type": "incident", "department": "Engineering"}
+  }
+]

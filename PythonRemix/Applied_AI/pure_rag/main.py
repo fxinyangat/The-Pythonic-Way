@@ -7,17 +7,21 @@ import json
 from typing import Any, cast
 
 try:
+    from .config import Clients
     from .evaluator import evaluate_pipeline, evaluate_ragas_pipeline
     from .generator import DEFAULT_GENERATION_MODEL, generate_answer
     from .query_rewriter import rewrite_query
     from .reranker import CrossEncoderReranker, rerank_chunks
     from .retriever import retrieve
+    from .vector_store import VectorStore
 except ImportError:
-    from PythonRemix.Applied_AI.pure_rag.evaluator import evaluate_pipeline, evaluate_ragas_pipeline
-    from PythonRemix.Applied_AI.pure_rag.generator import DEFAULT_GENERATION_MODEL, generate_answer
-    from PythonRemix.Applied_AI.pure_rag.query_rewriter import rewrite_query
-    from PythonRemix.Applied_AI.pure_rag.reranker import CrossEncoderReranker, rerank_chunks
-    from PythonRemix.Applied_AI.pure_rag.retriever import retrieve
+    from config import Clients
+    from evaluator import evaluate_pipeline, evaluate_ragas_pipeline
+    from generator import DEFAULT_GENERATION_MODEL, generate_answer
+    from query_rewriter import rewrite_query
+    from reranker import CrossEncoderReranker, rerank_chunks
+    from retriever import retrieve
+    from vector_store import VectorStore
 
 
 DEFAULT_RETRIEVE_K = 10
@@ -26,6 +30,8 @@ DEFAULT_TOP_N = 3
 
 def run_pipeline(
     reranker: CrossEncoderReranker,
+    store: VectorStore,
+    clients: Clients,
     query: str,
     retrieve_k: int = DEFAULT_RETRIEVE_K,
     top_n: int = DEFAULT_TOP_N,
@@ -45,8 +51,8 @@ def run_pipeline(
     # Rewrite only steers retrieval (matching corpus phrasing). Reranking and
     # generation stay anchored to the original query — that's the actual
     # question the answer has to address, not the retrieval-optimized version.
-    rewritten_query = rewrite_query(query, model=model)
-    retrieved_docs = retrieve(query=rewritten_query, k=retrieve_k)
+    rewritten_query = rewrite_query(clients.openai, query, model=model)
+    retrieved_docs = retrieve(store=store, query=rewritten_query, k=retrieve_k)
     reranked_docs = cast(
         list[dict[str, Any]],
         rerank_chunks(
@@ -68,6 +74,8 @@ def run_pipeline(
     )
     if use_ragas:
         evaluation["ragas"] = evaluate_ragas_pipeline(
+            llm=clients.ragas_llm,
+            embeddings=clients.ragas_embeddings,
             query=query,
             answer=answer,
             docs=reranked_docs,
@@ -135,8 +143,12 @@ def main() -> None:
     args = parser.parse_args()
 
     reranker = CrossEncoderReranker()
+    store = VectorStore()
+    clients = Clients()
     result = run_pipeline(
         reranker=reranker,
+        store=store,
+        clients=clients,
         query=args.query,
         retrieve_k=args.retrieve_k,
         top_n=args.top_n,

@@ -8,7 +8,7 @@ from urllib import error, request
 try:
     from .context_assembler import build_context
 except ImportError:
-    from PythonRemix.Applied_AI.pure_rag.context_assembler import build_context
+    from context_assembler import build_context
 
 
 CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"

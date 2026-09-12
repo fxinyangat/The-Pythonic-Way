@@ -1,0 +1,42 @@
+[
+  {
+    "query": "When must remote workers submit time logs?",
+    "expected_doc_id": "doc_1",
+    "ground_truth": "Remote workers must submit time logs by Friday at 5 PM."
+  },
+  {
+    "query": "How do on-site employees log entry?",
+    "expected_doc_id": "doc_2",
+    "ground_truth": "On-site employees log entry using physical badge readers."
+  },
+  {
+    "query": "When are contractor invoices due?",
+    "expected_doc_id": "doc_3",
+    "ground_truth": "Contractors must submit invoices by the 25th of each month."
+  },
+  {
+    "query": "How much is the remote worker home office stipend?",
+    "expected_doc_id": "doc_4",
+    "ground_truth": "Full-time remote staff receive a $500 home office stipend."
+  },
+  {
+    "query": "When must hourly remote workers take a break?",
+    "expected_doc_id": "doc_5",
+    "ground_truth": "Hourly remote workers must take a mandatory 30-minute break after five hours."
+  },
+  {
+    "query": "When are weekly reports due for remote workers?",
+    "expected_doc_id": "doc_6",
+    "ground_truth": "Remote workers must submit weekly reports by Monday at noon."
+  },
+  {
+    "query": "How much notice is required for leave?",
+    "expected_doc_id": "doc_7",
+    "ground_truth": "Employees must notify their manager at least two weeks before requesting leave."
+  },
+  {
+    "query": "When must production incident reports be submitted?",
+    "expected_doc_id": "doc_8",
+    "ground_truth": "Production incident reports must be submitted within 24 hours."
+  }
+]

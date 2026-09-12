@@ -4,14 +4,11 @@
 # collections API, each metric = its own LLM call) — call it deliberately, not per request,
 # since it costs real API calls and latency. ragas>=0.4 API: metrics are classes you
 # instantiate with an llm (and embeddings, for AnswerRelevancy), then .score(...).value
-# per example — not the old dataset+evaluate() batch pattern.
-from functools import lru_cache
+# per example — not the old dataset+evaluate() batch pattern. The llm/embeddings are
+# built once in config.Clients and passed in here, not cached locally.
 from statistics import mean
 from typing import Any
 
-from openai import AsyncOpenAI
-from ragas.embeddings import embedding_factory
-from ragas.llms import llm_factory
 from ragas.metrics.collections import (
     AnswerRelevancy,
     ContextPrecisionWithReference,
@@ -20,23 +17,6 @@ from ragas.metrics.collections import (
     Faithfulness,
 )
 
-RAGAS_LLM_MODEL = "gpt-4o-mini"
-RAGAS_EMBEDDING_MODEL = "text-embedding-3-small"
-
-
-@lru_cache(maxsize=1)
-def _ragas_llm():
-    # score() runs asyncio.run(ascore(...)) internally, which needs an async
-    # client — a sync OpenAI() here raises "Cannot use agenerate() with a
-    # synchronous client."
-    return llm_factory(model=RAGAS_LLM_MODEL, provider="openai", client=AsyncOpenAI())
-
-
-@lru_cache(maxsize=1)
-def _ragas_embeddings():
-    return embedding_factory(
-        provider="openai", model=RAGAS_EMBEDDING_MODEL, client=AsyncOpenAI()
-    )
 
 def _numeric_values(docs: list[dict[str, Any]], key: str) -> list[float]:
     values = []
@@ -104,19 +84,20 @@ def evaluate_pipeline(
 
 
 def evaluate_ragas_pipeline(
+    llm: Any,
+    embeddings: Any,
     query: str,
     answer: str,
     docs: list[dict[str, Any]],
     ground_truth: str | None = None,
 ) -> dict[str, Any]:
     contexts = [doc.get("text", "") for doc in docs]
-    llm = _ragas_llm()
 
     results: dict[str, Any] = {
         "faithfulness": Faithfulness(llm=llm).score(
             user_input=query, response=answer, retrieved_contexts=contexts
         ).value,
-        "answer_relevancy": AnswerRelevancy(llm=llm, embeddings=_ragas_embeddings()).score(
+        "answer_relevancy": AnswerRelevancy(llm=llm, embeddings=embeddings).score(
             user_input=query, response=answer
         ).value,
         "context_relevance": ContextRelevance(llm=llm).score(
