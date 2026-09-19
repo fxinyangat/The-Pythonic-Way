@@ -80,6 +80,7 @@ class VectorStore:
         self,
         documents: list[str],
         metadatas: list[dict[str, Any]] | None = None,
+        ids: list[str] | None = None,
     ) -> None:
         if not documents:
             return
@@ -90,7 +91,14 @@ class VectorStore:
         if len(documents) != len(metadatas):
             raise ValueError("documents and metadatas must have the same length.")
 
-        ids = [hashlib.md5(doc.encode("utf-8")).hexdigest() for doc in documents]
+        if ids is None:
+            ids = [hashlib.md5(doc.encode("utf-8")).hexdigest() for doc in documents]
+        elif len(documents) != len(ids):
+            raise ValueError("documents and ids must have the same length.")
+
+        if len(set(ids)) != len(ids):
+            raise ValueError("ids must be unique within a batch.")
+
         existing_ids = set(self.collection.get(ids=ids)["ids"])
 
         docs_to_add = []
