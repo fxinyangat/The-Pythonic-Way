@@ -1,0 +1,29 @@
+Nice, glad the corpus expansion landed. Here's the plan for registry.py + rag_tools.py (agentic RAG) — this is the seam where "RAG pipeline" becomes "agentic," so a few of these decisions matter more than they look.
+
+Phase 1 — registry.py: a generic, RAG-agnostic tool mechanism
+
+Per your architecture doc: @tool decorator, TOOL_REGISTRY, execute_tool(). Key design calls:
+
+Parameters described via a Pydantic model, not hand-written JSON schema. @tool(name=..., description=..., parameters=SomeModel, category="rag") — schema for the LLM is generated with SomeModel.model_json_schema(). This isn't just less typing: it means execute_tool can validate the LLM's tool-call arguments against the model before calling your function. That's a real boundary-validation case (per the "validate at system boundaries" principle) — an LLM's tool-call JSON is untrusted input, and you want a clean ValidationError instead of a KeyError three layers deep inside retrieve().
+execute_tool(name, arguments) -> str never raises. Look up the tool, validate args, call it, catch everything (validation errors and runtime errors alike), and always return a string — either the result or an error message. Reasoning: the caller (eventually the orchestrator's tool-calling loop) sends whatever execute_tool returns straight back to the LLM as a tool-result message. If it raised instead, one bad tool call would crash the whole conversation turn instead of letting the LLM see "tool failed: X" and recover.
+get_schemas(categories: list[str] | None) -> list[dict] filters by the category tag from @tool(...), matching your doc's registry.get_schemas(["rag"]) call. Internally, store each tool's schema data provider-agnostically (name/description/pydantic model) and only format to OpenAI's {"type": "function", "function": {...}} shape at get_schemas's output boundary. Reason: Anthropic's tool schema shape is different ({"name", "description", "input_schema"}), and you haven't built providers/ yet — keeping the storage format neutral means adding a second provider later doesn't require touching registry.py again.
+Phase 2 — rag_tools.py: bind your existing pipeline as one tool, via closures
+
+This is the trickiest real decision: tool functions get called by the registry as fn(**llm_provided_args) — just the LLM's arguments, nothing else. But knowledge_base_search needs VectorStore, CrossEncoderReranker, and Clients, which are constructed once in main.py. Two ways to reconcile that:
+
+A generic "context" object threaded through every tool call (more flexible, more coupling into registry.py's signature), or
+A factory function, register_rag_tools(store, reranker, clients), called once at startup, that defines an inner function closing over those three dependencies and applies @tool(...) to it locally. registry.py stays fully generic; rag_tools.py is the only place that knows RAG has dependencies at all.
+I'd go with the factory/closure approach — it matches the DI pattern you already committed to in main.py, and keeps registry.py reusable for code_tools.py/web_tools.py later without redesign.
+
+Phase 3 — Decide what knowledge_base_search actually does and returns
+
+Internally it's your existing run_pipeline minus the final generate_answer call: rewrite_query → retrieve → rerank_chunks → context_assembler.build_context. It should return the assembled context string, not raw doc dicts — a tool result sent back to the LLM must be text, and the LLM is the one who'll now write the final answer using that context (that's the second LLM call in your data-flow diagram). Parameter surface: just {query: str}. Don't expose retrieve_k/top_n as LLM-controllable — those are pipeline tuning knobs the LLM has no principled way to choose well; keep the tool interface narrow.
+
+Phase 4 — Deliberate deviation from the architecture doc: don't expose query_rewrite as its own separate tool
+
+Your original doc lists "knowledge_base_search, query_rewrite as tools" (plural). I'd push back on that: if query_rewrite is a separate callable tool, the LLM would need two round-trips (call rewrite, then call search with the result) for something that should just happen automatically inside search — extra latency and extra chances for the LLM to skip the step. Keep rewriting as an internal step inside knowledge_base_search's implementation (as it already is in run_pipeline), not a second exposed tool. Worth knowing as a real pattern: not everything in a pipeline needs to be an LLM-decidable tool — some steps should just always run.
+
+Phase 5 — Prove it works before orchestrator.py exists
+No agent loop yet, so test via a throwaway script (or rag_tools.py's own __main__): construct store/reranker/clients, call register_rag_tools(...), print get_schemas(["rag"]) to eyeball the JSON schema shape, then execute_tool("knowledge_base_search", {"query": "..."}) directly and confirm you get a context string back. This validates the whole wiring before you build the LLM loop that calls it for real.
+
+Want to start with registry.py (the generic mechanism, no RAG dependencies to worry about yet), or see the two files together in one pass?
