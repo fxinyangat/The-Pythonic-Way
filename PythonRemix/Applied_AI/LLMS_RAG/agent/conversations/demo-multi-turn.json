@@ -1,0 +1,86 @@
+[
+  {
+    "role": "user",
+    "content": "What is our policy on remote work time logging?"
+  },
+  {
+    "role": "assistant",
+    "content": null,
+    "tool_calls": [
+      {
+        "id": "call_VpGMNHSEHLatwykqnDxQhFUw",
+        "type": "function",
+        "function": {
+          "name": "knowledge_base_search",
+          "arguments": "{\"query\":\"remote work time logging policy\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "call_VpGMNHSEHLatwykqnDxQhFUw",
+    "content": "[tool result omitted \u2014 already used in an earlier answer]"
+  },
+  {
+    "role": "assistant",
+    "content": "Our policy on remote work time logging requires remote workers to submit their time logs by Friday at 5 PM (document id: doc_1).",
+    "tool_calls": null
+  },
+  {
+    "role": "user",
+    "content": "What about the equivalent deadline for contractors?"
+  },
+  {
+    "role": "assistant",
+    "content": null,
+    "tool_calls": [
+      {
+        "id": "call_hSIIjs8LEzC2dqFcMNKYHma3",
+        "type": "function",
+        "function": {
+          "name": "knowledge_base_search",
+          "arguments": "{\"query\":\"contractor time logging policy\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "call_hSIIjs8LEzC2dqFcMNKYHma3",
+    "content": "[tool result omitted \u2014 already used in an earlier answer]"
+  },
+  {
+    "role": "assistant",
+    "content": "Contractors must submit their invoices monthly by the 25th (document id: doc_3). There is no specific deadline mentioned for time logging for contractors in the available documents.",
+    "tool_calls": null
+  },
+  {
+    "role": "user",
+    "content": "And what's the notice period for taking leave?"
+  },
+  {
+    "role": "assistant",
+    "content": null,
+    "tool_calls": [
+      {
+        "id": "call_vYXRSGJhWEvrOPSboHtVJP5z",
+        "type": "function",
+        "function": {
+          "name": "knowledge_base_search",
+          "arguments": "{\"query\":\"leave notice period policy\"}"
+        }
+      }
+    ]
+  },
+  {
+    "role": "tool",
+    "tool_call_id": "call_vYXRSGJhWEvrOPSboHtVJP5z",
+    "content": "[1] id: doc_7\nmetadata: {\"chunk_count\": 1, \"chunk_index\": 0, \"department\": \"HR\", \"source_document_id\": \"doc_7\", \"type\": \"leave\"}\ncontent: Employees requesting leave must notify their manager at least two weeks in advance.\n\n[2] id: 9e07d80f3976817e36fd98b79d0eda28\nmetadata: {\"chunk_count\": 1, \"chunk_index\": 0, \"department\": \"HR\", \"source_document_id\": \"doc_7\", \"type\": \"leave\"}\ncontent: Employees requesting leave must notify their manager at least two weeks in advance.\n\n[3] id: f6522d01169741bec79398a03921f031\nmetadata: {\"chunk_count\": 1, \"chunk_index\": 0, \"department\": \"HR\", \"source_document_id\": \"doc_5\", \"type\": \"remote\"}\ncontent: Hourly remote workers must take a mandatory 30-minute break after 5 hours."
+  },
+  {
+    "role": "assistant",
+    "content": "Employees requesting leave must notify their manager at least two weeks in advance (document id: doc_7).",
+    "tool_calls": null
+  }
+]

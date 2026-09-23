@@ -51,9 +51,15 @@ class Orchestrator:
         self.model = model
         self.max_turns = max_turns
 
-    def run(self, query: str) -> dict[str, Any]:
+    def run(self, query: str, history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+        # `history` is prior conversation turns (already windowed/pruned by
+        # the CALLER — see agent/chat_session.py). Orchestrator stays
+        # storage-agnostic on purpose: it has no idea a conversation_id or a
+        # ConversationStore exists, it just appends whatever history it's
+        # handed after the system prompt and before the new query.
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": SYSTEM_PROMPT},
+            *(history or []),
             {"role": "user", "content": query},
         ]
         tool_schemas = get_schemas(self.tool_categories)
